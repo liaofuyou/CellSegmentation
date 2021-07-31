@@ -5,7 +5,7 @@ import numpy as np
 import torch.utils.data
 
 
-class Dataset(torch.utils.data.Dataset):
+class DSBDataset(torch.utils.data.Dataset):
     def __init__(self, img_ids, img_dir, mask_dir, img_ext, mask_ext, num_classes, transform=None):
         """
         Args:

@@ -1,6 +1,8 @@
 import argparse
 import os
 from glob import glob
+
+import albumentations
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
@@ -10,10 +12,11 @@ import yaml
 from albumentations.augmentations import transforms
 from albumentations.core.composition import Compose
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import archs
-from dataset import Dataset
+from dsb_dataset import DSBDataset
 from metrics import iou_score
 from utils import AverageMeter
 
@@ -51,24 +54,22 @@ def main():
                                            config['input_channels'],
                                            config['deep_supervision'])
 
-    model = model.cuda()
-
     # Data loading code
     img_ids = glob(os.path.join('inputs', config['dataset'], 'images', '*' + config['img_ext']))
     img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
 
     _, val_img_ids = train_test_split(img_ids, test_size=0.2, random_state=41)
 
-    model.load_state_dict(torch.load('models/%s/model.pth' %
-                                     config['name']))
+    # model.load_state_dict(torch.load('models/%s/model.pth' %
+    #                                  config['name']))
     model.eval()
 
     val_transform = Compose([
-        transforms.Resize(config['input_h'], config['input_w']),
+        albumentations.Resize(config['input_h'], config['input_w']),
         transforms.Normalize(),
     ])
 
-    val_dataset = Dataset(
+    val_dataset = DSBDataset(
         img_ids=val_img_ids,
         img_dir=os.path.join('inputs', config['dataset'], 'images'),
         mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
@@ -76,7 +77,7 @@ def main():
         mask_ext=config['mask_ext'],
         num_classes=config['num_classes'],
         transform=val_transform)
-    val_loader = torch.utils.data.DataLoader(
+    val_loader = DataLoader(
         val_dataset,
         batch_size=config['batch_size'],
         shuffle=False,
@@ -89,8 +90,6 @@ def main():
         os.makedirs(os.path.join('outputs', config['name'], str(c)), exist_ok=True)
     with torch.no_grad():
         for x, y, meta in tqdm(val_loader, total=len(val_loader)):
-            x = x.cuda()
-            y = y.cuda()
 
             # compute output
             if config['deep_supervision']:

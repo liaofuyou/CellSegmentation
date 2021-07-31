@@ -3,6 +3,7 @@ import os
 from collections import OrderedDict
 from glob import glob
 
+import albumentations
 import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
@@ -10,9 +11,6 @@ import torch.nn as nn
 import torch.optim as optim
 # pip install PyYaml
 import yaml
-# https://github.com/albumentations-team/albumentations
-# pip install -U albumentations
-# python3.6+
 from albumentations.augmentations import transforms
 from albumentations.core.composition import Compose, OneOf
 from sklearn.model_selection import train_test_split
@@ -21,7 +19,7 @@ from tqdm import tqdm
 
 import archs
 import losses
-from dataset import Dataset
+from dsb_dataset import DSBDataset
 from metrics import iou_score
 from utils import AverageMeter, str2bool
 
@@ -120,8 +118,6 @@ def train(config, train_loader, model, criterion, optimizer):
 
     pbar = tqdm(total=len(train_loader))
     for x, y, _ in train_loader:
-        x = x.cuda()
-        y = y.cuda()
 
         # compute output
         if config['deep_supervision']:
@@ -166,8 +162,6 @@ def validate(config, val_loader, model, criterion):
     with torch.no_grad():
         pbar = tqdm(total=len(val_loader))
         for input, target, _ in val_loader:
-            input = input.cuda()
-            target = target.cuda()
 
             # compute output
             if config['deep_supervision']:
@@ -217,9 +211,9 @@ def main():
 
     # define loss function (criterion)
     if config['loss'] == 'BCEWithLogitsLoss':
-        criterion = nn.BCEWithLogitsLoss().cuda()  # WithLogits 就是先将输出结果经过sigmoid再交叉熵
+        criterion = nn.BCEWithLogitsLoss()  # WithLogits 就是先将输出结果经过sigmoid再交叉熵
     else:
-        criterion = losses.__dict__[config['loss']]().cuda()
+        criterion = losses.__dict__[config['loss']]()
 
     cudnn.benchmark = True
 
@@ -228,8 +222,6 @@ def main():
     model = archs.__dict__[config['arch']](config['num_classes'],
                                            config['input_channels'],
                                            config['deep_supervision'])
-
-    model = model.cuda()
 
     params = filter(lambda p: p.requires_grad, model.parameters())
     if config['optimizer'] == 'Adam':
@@ -257,23 +249,23 @@ def main():
     train_img_ids, val_img_ids = train_test_split(img_ids, test_size=0.2, random_state=41)
     # 数据增强：
     train_transform = Compose([
-        transforms.RandomRotate90(),
+        # transforms.RandomRotate90(),
         transforms.Flip(),
         OneOf([
             transforms.HueSaturationValue(),
             transforms.RandomBrightness(),
             transforms.RandomContrast(),
         ], p=1),  # 按照归一化的概率选择执行哪一个
-        transforms.Resize(config['input_h'], config['input_w']),
+        albumentations.Resize(config['input_h'], config['input_w']),
         transforms.Normalize(),
     ])
 
     val_transform = Compose([
-        transforms.Resize(config['input_h'], config['input_w']),
+        albumentations.Resize(config['input_h'], config['input_w']),
         transforms.Normalize(),
     ])
 
-    train_dataset = Dataset(
+    train_dataset = DSBDataset(
         img_ids=train_img_ids,
         img_dir=os.path.join('inputs', config['dataset'], 'images'),
         mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
@@ -282,7 +274,7 @@ def main():
         num_classes=config['num_classes'],
         transform=train_transform)
 
-    val_dataset = Dataset(
+    val_dataset = DSBDataset(
         img_ids=val_img_ids,
         img_dir=os.path.join('inputs', config['dataset'], 'images'),
         mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
