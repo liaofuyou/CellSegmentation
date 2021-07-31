@@ -37,6 +37,7 @@ LOSS_NAMES.append('BCEWithLogitsLoss')
 
 """
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -46,13 +47,16 @@ def parse_args():
                         help='number of total epochs to run')
     parser.add_argument('-b', '--batch_size', default=8, type=int,
                         metavar='N', help='mini-batch size (default: 16)')
-    
+
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='NestedUNet',
+    parser.add_argument('--arch',
+                        '-a',
+                        metavar='ARCH',
+                        default='NestedUNet',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
-                        ' | '.join(ARCH_NAMES) +
-                        ' (default: NestedUNet)')
+                             ' | '.join(ARCH_NAMES) +
+                             ' (default: NestedUNet)')
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
     parser.add_argument('--input_channels', default=3, type=int,
                         help='input channels')
@@ -62,14 +66,12 @@ def parse_args():
                         help='image width')
     parser.add_argument('--input_h', default=96, type=int,
                         help='image height')
-    
+
     # loss
     parser.add_argument('--loss', default='BCEDiceLoss',
                         choices=LOSS_NAMES,
-                        help='loss: ' +
-                        ' | '.join(LOSS_NAMES) +
-                        ' (default: BCEDiceLoss)')
-    
+                        help='loss: ' + ' | '.join(LOSS_NAMES) + ' (default: BCEDiceLoss)')
+
     # dataset
     parser.add_argument('--dataset', default='dsb2018_96',
                         help='dataset name')
@@ -81,9 +83,7 @@ def parse_args():
     # optimizer
     parser.add_argument('--optimizer', default='SGD',
                         choices=['Adam', 'SGD'],
-                        help='loss: ' +
-                        ' | '.join(['Adam', 'SGD']) +
-                        ' (default: Adam)')
+                        help='loss: ' + ' | '.join(['Adam', 'SGD']) + ' (default: Adam)')
     parser.add_argument('--lr', '--learning_rate', default=1e-3, type=float,
                         metavar='LR', help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float,
@@ -101,10 +101,10 @@ def parse_args():
     parser.add_argument('--factor', default=0.1, type=float)
     parser.add_argument('--patience', default=2, type=int)
     parser.add_argument('--milestones', default='1,2', type=str)
-    parser.add_argument('--gamma', default=2/3, type=float)
+    parser.add_argument('--gamma', default=2 / 3, type=float)
     parser.add_argument('--early_stopping', default=-1, type=int,
                         metavar='N', help='early stopping (default: -1)')
-    
+
     parser.add_argument('--num_workers', default=0, type=int)
 
     config = parser.parse_args()
@@ -119,30 +119,30 @@ def train(config, train_loader, model, criterion, optimizer):
     model.train()
 
     pbar = tqdm(total=len(train_loader))
-    for input, target, _ in train_loader:
-        input = input.cuda()
-        target = target.cuda()
+    for x, y, _ in train_loader:
+        x = x.cuda()
+        y = y.cuda()
 
         # compute output
         if config['deep_supervision']:
-            outputs = model(input)
+            outputs = model(x)
             loss = 0
             for output in outputs:
-                loss += criterion(output, target)
+                loss += criterion(output, y)
             loss /= len(outputs)
-            iou = iou_score(outputs[-1], target)
+            iou = iou_score(outputs[-1], y)
         else:
-            output = model(input)
-            loss = criterion(output, target)
-            iou = iou_score(output, target)
+            output = model(x)
+            loss = criterion(output, y)
+            iou = iou_score(output, y)
 
         # compute gradient and do optimizing step
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        avg_meters['loss'].update(loss.item(), input.size(0))
-        avg_meters['iou'].update(iou, input.size(0))
+        avg_meters['loss'].update(loss.item(), x.size(0))
+        avg_meters['iou'].update(iou, x.size(0))
 
         postfix = OrderedDict([
             ('loss', avg_meters['loss'].avg),
@@ -217,7 +217,7 @@ def main():
 
     # define loss function (criterion)
     if config['loss'] == 'BCEWithLogitsLoss':
-        criterion = nn.BCEWithLogitsLoss().cuda()#WithLogits 就是先将输出结果经过sigmoid再交叉熵
+        criterion = nn.BCEWithLogitsLoss().cuda()  # WithLogits 就是先将输出结果经过sigmoid再交叉熵
     else:
         criterion = losses.__dict__[config['loss']]().cuda()
 
@@ -233,20 +233,16 @@ def main():
 
     params = filter(lambda p: p.requires_grad, model.parameters())
     if config['optimizer'] == 'Adam':
-        optimizer = optim.Adam(
-            params, lr=config['lr'], weight_decay=config['weight_decay'])
+        optimizer = optim.Adam(params, lr=config['lr'], weight_decay=config['weight_decay'])
     elif config['optimizer'] == 'SGD':
-        optimizer = optim.SGD(params, lr=config['lr'], momentum=config['momentum'],
-                              nesterov=config['nesterov'], weight_decay=config['weight_decay'])
+        optimizer = optim.SGD(params, lr=config['lr'], momentum=config['momentum'], nesterov=config['nesterov'], weight_decay=config['weight_decay'])
     else:
         raise NotImplementedError
 
     if config['scheduler'] == 'CosineAnnealingLR':
-        scheduler = lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=config['epochs'], eta_min=config['min_lr'])
+        scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=config['epochs'], eta_min=config['min_lr'])
     elif config['scheduler'] == 'ReduceLROnPlateau':
-        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, factor=config['factor'], patience=config['patience'],
-                                                   verbose=1, min_lr=config['min_lr'])
+        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, factor=config['factor'], patience=config['patience'], verbose=True, min_lr=config['min_lr'])
     elif config['scheduler'] == 'MultiStepLR':
         scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[int(e) for e in config['milestones'].split(',')], gamma=config['gamma'])
     elif config['scheduler'] == 'ConstantLR':
@@ -259,7 +255,7 @@ def main():
     img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
 
     train_img_ids, val_img_ids = train_test_split(img_ids, test_size=0.2, random_state=41)
-    #数据增强：
+    # 数据增强：
     train_transform = Compose([
         transforms.RandomRotate90(),
         transforms.Flip(),
@@ -267,7 +263,7 @@ def main():
             transforms.HueSaturationValue(),
             transforms.RandomBrightness(),
             transforms.RandomContrast(),
-        ], p=1),#按照归一化的概率选择执行哪一个
+        ], p=1),  # 按照归一化的概率选择执行哪一个
         transforms.Resize(config['input_h'], config['input_w']),
         transforms.Normalize(),
     ])
@@ -285,6 +281,7 @@ def main():
         mask_ext=config['mask_ext'],
         num_classes=config['num_classes'],
         transform=train_transform)
+
     val_dataset = Dataset(
         img_ids=val_img_ids,
         img_dir=os.path.join('inputs', config['dataset'], 'images'),
@@ -299,7 +296,7 @@ def main():
         batch_size=config['batch_size'],
         shuffle=True,
         num_workers=config['num_workers'],
-        drop_last=True)#不能整除的batch是否就不要了
+        drop_last=True)  # 不能整除的batch是否就不要了
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=config['batch_size'],
@@ -354,7 +351,7 @@ def main():
             trigger = 0
 
         # early stopping
-        if config['early_stopping'] >= 0 and trigger >= config['early_stopping']:
+        if 0 <= config['early_stopping'] <= trigger:
             print("=> early stopping")
             break
 

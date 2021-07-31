@@ -1,6 +1,4 @@
-import numpy as np
 import torch
-import torch.nn.functional as F
 
 
 def iou_score(output, target):

@@ -16,15 +16,16 @@ import archs
 from dataset import Dataset
 from metrics import iou_score
 from utils import AverageMeter
+
 """
 需要指定参数：--name dsb2018_96_NestedUNet_woDS
 """
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--name', default="dsb2018_96_NestedUNet_woDS",
-                        help='model name')
+    parser.add_argument('--name', default="dsb2018_96_NestedUNet_woDS", help='model name')
 
     args = parser.parse_args()
 
@@ -37,10 +38,10 @@ def main():
     with open('models/%s/config.yml' % args.name, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
-    print('-'*20)
+    print('-' * 20)
     for key in config.keys():
         print('%s: %s' % (key, str(config[key])))
-    print('-'*20)
+    print('-' * 20)
 
     cudnn.benchmark = True
 
@@ -87,18 +88,18 @@ def main():
     for c in range(config['num_classes']):
         os.makedirs(os.path.join('outputs', config['name'], str(c)), exist_ok=True)
     with torch.no_grad():
-        for input, target, meta in tqdm(val_loader, total=len(val_loader)):
-            input = input.cuda()
-            target = target.cuda()
+        for x, y, meta in tqdm(val_loader, total=len(val_loader)):
+            x = x.cuda()
+            y = y.cuda()
 
             # compute output
             if config['deep_supervision']:
-                output = model(input)[-1]
+                output = model(x)[-1]
             else:
-                output = model(input)
+                output = model(x)
 
-            iou = iou_score(output, target)
-            avg_meter.update(iou, input.size(0))
+            iou = iou_score(output, y)
+            avg_meter.update(iou, x.size(0))
 
             output = torch.sigmoid(output).cpu().numpy()
 
@@ -108,22 +109,23 @@ def main():
                                 (output[i, c] * 255).astype('uint8'))
 
     print('IoU: %.4f' % avg_meter.avg)
-    
-    plot_examples(input, target, model,num_examples=3)
-    
+
+    plot_examples(x, y, model, num_examples=3)
+
     torch.cuda.empty_cache()
 
-def plot_examples(datax, datay, model,num_examples=6):
-    fig, ax = plt.subplots(nrows=num_examples, ncols=3, figsize=(18,4*num_examples))
+
+def plot_examples(datax, datay, model, num_examples=6):
+    fig, ax = plt.subplots(nrows=num_examples, ncols=3, figsize=(18, 4 * num_examples))
     m = datax.shape[0]
     for row_num in range(num_examples):
         image_indx = np.random.randint(m)
-        image_arr = model(datax[image_indx:image_indx+1]).squeeze(0).detach().cpu().numpy()
-        ax[row_num][0].imshow(np.transpose(datax[image_indx].cpu().numpy(), (1,2,0))[:,:,0])
+        image_arr = model(datax[image_indx:image_indx + 1]).squeeze(0).detach().cpu().numpy()
+        ax[row_num][0].imshow(np.transpose(datax[image_indx].cpu().numpy(), (1, 2, 0))[:, :, 0])
         ax[row_num][0].set_title("Orignal Image")
-        ax[row_num][1].imshow(np.squeeze((image_arr > 0.40)[0,:,:].astype(int)))
+        ax[row_num][1].imshow(np.squeeze((image_arr > 0.40)[0, :, :].astype(int)))
         ax[row_num][1].set_title("Segmented Image localization")
-        ax[row_num][2].imshow(np.transpose(datay[image_indx].cpu().numpy(), (1,2,0))[:,:,0])
+        ax[row_num][2].imshow(np.transpose(datay[image_indx].cpu().numpy(), (1, 2, 0))[:, :, 0])
         ax[row_num][2].set_title("Target image")
     plt.show()
 

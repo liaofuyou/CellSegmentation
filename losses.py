@@ -14,15 +14,15 @@ class BCEDiceLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, input, target):
-        bce = F.binary_cross_entropy_with_logits(input, target)
+    def forward(self, x, y):
+        bce = F.binary_cross_entropy_with_logits(x, y)
         smooth = 1e-5
-        input = torch.sigmoid(input)
-        num = target.size(0)
-        input = input.view(num, -1)
-        target = target.view(num, -1)
-        intersection = (input * target)
-        dice = (2. * intersection.sum(1) + smooth) / (input.sum(1) + target.sum(1) + smooth)
+        x = torch.sigmoid(x)
+        num = y.size(0)
+        x = x.view(num, -1)
+        y = y.view(num, -1)
+        intersection = (x * y)
+        dice = (2. * intersection.sum(1) + smooth) / (x.sum(1) + y.sum(1) + smooth)
         dice = 1 - dice.sum() / num
         return 0.5 * bce + dice
 
@@ -31,9 +31,9 @@ class LovaszHingeLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, input, target):
-        input = input.squeeze(1)
-        target = target.squeeze(1)
-        loss = lovasz_hinge(input, target, per_image=True)
+    def forward(self, x, y):
+        x = x.squeeze(1)
+        y = y.squeeze(1)
+        loss = lovasz_hinge(x, y, per_image=True)
 
         return loss

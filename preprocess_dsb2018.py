@@ -16,8 +16,7 @@ def main():
 
     for i in tqdm(range(len(paths))):
         path = paths[i]
-        img = cv2.imread(os.path.join(path, 'images',
-                         os.path.basename(path) + '.png'))
+        img = cv2.imread(os.path.join(path, 'images', os.path.basename(path) + '.png'))
         mask = np.zeros((img.shape[0], img.shape[1]))
         for mask_path in glob(os.path.join(path, 'masks', '*')):
             mask_ = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE) > 127
@@ -29,9 +28,9 @@ def main():
         img = cv2.resize(img, (img_size, img_size))
         mask = cv2.resize(mask, (img_size, img_size))
         cv2.imwrite(os.path.join('inputs/dsb2018_%d/images' % img_size,
-                    os.path.basename(path) + '.png'), img)
+                                 os.path.basename(path) + '.png'), img)
         cv2.imwrite(os.path.join('inputs/dsb2018_%d/masks/0' % img_size,
-                    os.path.basename(path) + '.png'), (mask * 255).astype('uint8'))
+                                 os.path.basename(path) + '.png'), (mask * 255).astype('uint8'))
 
 
 if __name__ == '__main__':
