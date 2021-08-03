@@ -31,3 +31,12 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+ypoints = np.array([3, 10])
+
+plt.plot(ypoints)
+plt.plot(np.array([4, 11]))
+plt.show()

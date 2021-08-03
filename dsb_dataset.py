@@ -51,15 +51,17 @@ class DSBDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.img_ids)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
+
         img_id = self.img_ids[idx]
 
+        # inputs / dsb2018_96 / images / d751ccb64fa767a65a966061218438bd1860695d96bbef11fdb2f0d3b8dedba8.png
         img = cv2.imread(os.path.join(self.img_dir, img_id + self.img_ext))
 
         mask = []
         for i in range(self.num_classes):
-            mask.append(cv2.imread(os.path.join(self.mask_dir, str(i),
-                                                img_id + self.mask_ext), cv2.IMREAD_GRAYSCALE)[..., None])
+            # inputs/dsb2018_96/masks/0/d751ccb64fa767a65a966061218438bd1860695d96bbef11fdb2f0d3b8dedba8.png
+            mask.append(cv2.imread(os.path.join(self.mask_dir, str(i), img_id + self.mask_ext), cv2.IMREAD_GRAYSCALE)[..., None])
         # 数组沿深度方向进行拼接。
         mask = np.dstack(mask)
 

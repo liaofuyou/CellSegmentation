@@ -31,8 +31,8 @@ class DSBDataModule(LightningDataModule):
         self.dataset_train = ...
         self.dataset_val = ...
 
-        # self.prepare_data()
-        # self.setup()
+        self.prepare_data()
+        self.setup()
 
     @property
     def num_classes(self):
@@ -81,7 +81,6 @@ class DSBDataModule(LightningDataModule):
             transform=val_transform)
 
     def train_dataloader(self):
-        """MNIST train set removes a subset to use for validation"""
         loader = DataLoader(
             self.dataset_train,
             batch_size=self.batch_size,
@@ -93,7 +92,6 @@ class DSBDataModule(LightningDataModule):
         return loader
 
     def val_dataloader(self):
-        """MNIST val set uses a subset of the training set for validation"""
         loader = DataLoader(
             self.dataset_val,
             batch_size=self.batch_size,
@@ -103,3 +101,14 @@ class DSBDataModule(LightningDataModule):
             pin_memory=True,
         )
         return loader
+
+
+
+if __name__ == '__main__':
+
+    dm = DSBDataModule()
+    dataloader = dm.train_dataloader()
+
+    for x, y, _ in dataloader:
+        print(x.shape, y.shape)
+        break
