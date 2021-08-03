@@ -36,7 +36,8 @@ class CellSegmentationModule(pl.LightningModule):
         output = self(x)["out"]
         loss = self.criterion(output, y)
 
-        self.log("Acc", self.metric(iou_score(output, y)), on_step=True, on_epoch=True)
+        self.metric(iou_score(output, y))
+        self.log("Acc", self.metric, on_step=True, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
