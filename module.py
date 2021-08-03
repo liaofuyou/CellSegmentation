@@ -26,7 +26,8 @@ class CellSegmentationModule(pl.LightningModule):
                                                 num_classes=num_classes)
         self.criterion = nn.BCEWithLogitsLoss()
 
-        self.metric = AverageMeter()
+        self.metric_train = AverageMeter()
+        self.metric_val = AverageMeter()
 
     def forward(self, x):
         return self.net(x)
@@ -36,15 +37,25 @@ class CellSegmentationModule(pl.LightningModule):
         output = self(x)["out"]
         loss = self.criterion(output, y)
 
-        self.metric(iou_score(output, y))
-        self.log("Acc", self.metric, on_step=True, on_epoch=True)
+        # "准确率"
+        acc = self.metric_train(iou_score(output, y))
+        print("train acc", acc)
+        self.log("Acc", acc, on_step=True, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        return self.training_step(batch, batch_idx)
+        x, y, _ = batch
+        output = self(x)["out"]
+        loss = self.criterion(output, y)
+
+        # "准确率"
+        acc = self.metric_val(iou_score(output, y))
+        print("val acc", acc)
+        self.log("Acc", acc, on_step=True, on_epoch=True)
+        return loss
 
     def test_step(self, batch, batch_idx):
-        return self.training_step(batch, batch_idx)
+        return self.validation_step(batch, batch_idx)
 
     def predict(self, image_path):
         transform = albumentations.Compose([
@@ -80,6 +91,10 @@ def predict():
 
 
 def cli_main():
+    from pytorch_lightning import loggers as pl_loggers
+
+    tb_logger = pl_loggers.TensorBoardLogger("logs/")
+
     # init model
     model = CellSegmentationModule(num_classes=1)
 
@@ -89,7 +104,8 @@ def cli_main():
     # train
     trainer = pl.Trainer(max_epochs=10,
                          val_check_interval=0.25,
-                         fast_dev_run=False)
+                         logger=tb_logger,
+                         fast_dev_run=True)
     trainer.fit(model, dm)
 
 
